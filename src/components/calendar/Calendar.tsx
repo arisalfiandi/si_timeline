@@ -1,17 +1,20 @@
-"use client";
-import React, { useState, useRef, useEffect } from "react";
-import FullCalendar from "@fullcalendar/react";
-import dayGridPlugin from "@fullcalendar/daygrid";
-import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
+'use client';
+import React, { useState, useRef, useEffect } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import multiMonthPlugin from '@fullcalendar/multimonth';
 import {
   EventInput,
   DateSelectArg,
   EventClickArg,
   EventContentArg,
-} from "@fullcalendar/core";
-import { useModal } from "@/hooks/useModal";
-import { Modal } from "@/components/ui/modal";
+} from '@fullcalendar/core';
+import { useModal } from '@/hooks/useModal';
+import { Modal } from '@/components/ui/modal';
+import DatePicker from '@/components/form/date-picker';
+import idLocale from '@fullcalendar/core/locales/id';
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
@@ -21,52 +24,59 @@ interface CalendarEvent extends EventInput {
 
 const Calendar: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-    null
+    null,
   );
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventStartDate, setEventStartDate] = useState("");
-  const [eventEndDate, setEventEndDate] = useState("");
-  const [eventLevel, setEventLevel] = useState("");
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventStartDate, setEventStartDate] = useState('');
+  const [eventEndDate, setEventEndDate] = useState('');
+  const [eventLevel, setEventLevel] = useState('');
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
   const calendarsEvents = {
-    Danger: "danger",
-    Success: "success",
-    Primary: "primary",
-    Warning: "warning",
+    Danger: 'danger',
+    Success: 'success',
+    Primary: 'primary',
+    Warning: 'warning',
   };
 
   useEffect(() => {
     // Initialize with some events
+    const startDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 hari dari sekarang
+    // Menghitung tanggal akhir (2 hari setelah startDate)
+    const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 hari setelah startDate
+
+    // PENTING: Atur waktu akhir agar tidak menjadi 00:00 hari berikutnya
+    // Misalnya, jika event berakhir pada sore hari, set jam/menitnya
+    endDate.setHours(17, 0, 0, 0); // Mengatur waktu akhir menjadi 17:00 (5 sore)
+
     setEvents([
       {
-        id: "1",
-        title: "Event Conf.",
-        start: new Date().toISOString().split("T")[0],
-        extendedProps: { calendar: "Danger" },
+        id: '1',
+        title: 'Event Conf.',
+        start: new Date().toISOString().split('T')[0],
+        extendedProps: { calendar: 'Danger' },
       },
       {
-        id: "2",
-        title: "Meeting",
-        start: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Success" },
+        id: '2',
+        title: 'Meeting',
+        start: new Date().toISOString().split('T')[0],
+        extendedProps: { calendar: 'Success' },
       },
       {
-        id: "3",
-        title: "Workshop",
-        start: new Date(Date.now() + 172800000).toISOString().split("T")[0],
-        end: new Date(Date.now() + 259200000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Primary" },
+        id: '3',
+        title: 'Workshop',
+        start: startDate.toISOString(), // Sekarang ini akan memiliki waktu juga
+        // Menggunakan ISO string penuh untuk end (termasuk waktu)
+        end: endDate.toISOString(), // Sekarang ini akan memiliki waktu akhir yang spesifik
+        extendedProps: { calendar: 'Primary' },
       },
     ]);
   }, []);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
     resetModalFields();
-    setEventStartDate(selectInfo.startStr);
-    setEventEndDate(selectInfo.endStr || selectInfo.startStr);
     openModal();
   };
 
@@ -74,8 +84,8 @@ const Calendar: React.FC = () => {
     const event = clickInfo.event;
     setSelectedEvent(event as unknown as CalendarEvent);
     setEventTitle(event.title);
-    setEventStartDate(event.start?.toISOString().split("T")[0] || "");
-    setEventEndDate(event.end?.toISOString().split("T")[0] || "");
+    setEventStartDate(event.start?.toISOString() || '');
+    setEventEndDate(event.end?.toISOString() || '');
     setEventLevel(event.extendedProps.calendar);
     openModal();
   };
@@ -93,8 +103,8 @@ const Calendar: React.FC = () => {
                 end: eventEndDate,
                 extendedProps: { calendar: eventLevel },
               }
-            : event
-        )
+            : event,
+        ),
       );
     } else {
       // Add new event
@@ -113,10 +123,10 @@ const Calendar: React.FC = () => {
   };
 
   const resetModalFields = () => {
-    setEventTitle("");
-    setEventStartDate("");
-    setEventEndDate("");
-    setEventLevel("");
+    setEventTitle('');
+    setEventStartDate('');
+    setEventEndDate('');
+    setEventLevel('');
     setSelectedEvent(null);
   };
 
@@ -125,24 +135,30 @@ const Calendar: React.FC = () => {
       <div className="custom-calendar">
         <FullCalendar
           ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          locale={idLocale}
+          plugins={[
+            dayGridPlugin,
+            timeGridPlugin,
+            interactionPlugin,
+            multiMonthPlugin,
+          ]}
           initialView="dayGridMonth"
           headerToolbar={{
-            left: "prev,next addEventButton",
-            center: "title",
-            right: "dayGridMonth,timeGridWeek,timeGridDay",
+            left: 'prev,next',
+            center: 'title',
+            right: 'multiMonthYear,dayGridMonth,timeGridWeek,timeGridDay',
           }}
           events={events}
           selectable={true}
           select={handleDateSelect}
           eventClick={handleEventClick}
           eventContent={renderEventContent}
-          customButtons={{
-            addEventButton: {
-              text: "Add Event +",
-              click: openModal,
-            },
-          }}
+          // customButtons={{
+          //   addEventButton: {
+          //     text: "Add Event +",
+          //     click: openModal,
+          //   },
+          // }}
         />
       </div>
       <Modal
@@ -152,21 +168,22 @@ const Calendar: React.FC = () => {
       >
         <div className="flex flex-col px-2 overflow-y-auto custom-scrollbar">
           <div>
-            <h5 className="mb-2 font-semibold text-gray-800 modal-title text-theme-xl dark:text-white/90 lg:text-2xl">
-              {selectedEvent ? "Edit Event" : "Add Event"}
-            </h5>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            {/* <h5 className="mb-2 font-semibold text-gray-800 modal-title text-theme-xl dark:text-white/90 lg:text-2xl">
+              {selectedEvent ? 'Edit Event' : 'Add Event'}
+            </h5> */}
+            {/* <p className="text-sm text-gray-500 dark:text-gray-400">
               Plan your next big moment: schedule or edit an event to stay on
               track
-            </p>
+            </p> */}
           </div>
           <div className="mt-8">
             <div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Event Title
+                  Nama Kegiatan
                 </label>
                 <input
+                  disabled
                   id="event-title"
                   type="text"
                   value={eventTitle}
@@ -175,9 +192,9 @@ const Calendar: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="mt-6">
+            {/* <div className="mt-6">
               <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
-                Event Color
+                Warna Kegiatan
               </label>
               <div className="flex flex-wrap items-center gap-4 sm:gap-5">
                 {Object.entries(calendarsEvents).map(([key, value]) => (
@@ -194,6 +211,7 @@ const Calendar: React.FC = () => {
                             className="sr-only form-check-input"
                             type="radio"
                             name="event-level"
+                            disabled
                             value={key}
                             id={`modal${key}`}
                             checked={eventLevel === key}
@@ -202,8 +220,8 @@ const Calendar: React.FC = () => {
                           <span className="flex items-center justify-center w-5 h-5 mr-2 border border-gray-300 rounded-full box dark:border-gray-700">
                             <span
                               className={`h-2 w-2 rounded-full bg-white ${
-                                eventLevel === key ? "block" : "hidden"
-                              }`}  
+                                eventLevel === key ? 'block' : 'hidden'
+                              }`}
                             ></span>
                           </span>
                         </span>
@@ -213,36 +231,40 @@ const Calendar: React.FC = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
 
             <div className="mt-6">
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                Enter Start Date
+                Tanggal Mulai
               </label>
-              <div className="relative">
-                <input
-                  id="event-start-date"
-                  type="date"
+              <div>
+                <DatePicker
+                  id="date-picker"
                   value={eventStartDate}
-                  onChange={(e) => setEventStartDate(e.target.value)}
-                  className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                  placeholder="Select a date"
+                  disabled
+                  onChange={(dates, currentDateString) => {
+                    // Handle your logic
+                    console.log({ dates, currentDateString });
+                  }}
                 />
               </div>
             </div>
 
             <div className="mt-6">
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                Enter End Date
+                Tanggal Berhenti
               </label>
-              <div className="relative">
-                <input
-                  id="event-end-date"
-                  type="date"
-                  value={eventEndDate}
-                  onChange={(e) => setEventEndDate(e.target.value)}
-                  className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                />
-              </div>
+              <DatePicker
+                id="date-picker"
+                value={eventEndDate}
+                disabled
+                placeholder="Select a date"
+                onChange={(dates, currentDateString) => {
+                  // Handle your logic
+                  console.log({ dates, currentDateString });
+                }}
+              />
             </div>
           </div>
           <div className="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
@@ -251,15 +273,15 @@ const Calendar: React.FC = () => {
               type="button"
               className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
             >
-              Close
+              Tutup
             </button>
-            <button
+            {/* <button
               onClick={handleAddOrUpdateEvent}
               type="button"
               className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
             >
-              {selectedEvent ? "Update Changes" : "Add Event"}
-            </button>
+              {selectedEvent ? 'Update Changes' : 'Add Event'}
+            </button> */}
           </div>
         </div>
       </Modal>
