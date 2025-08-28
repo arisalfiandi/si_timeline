@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                  String            @unique
+  name                   String?
+  picture                String?
+  password_hash          String?
+  provider               String            @default("local")
+  google_access_token    String?
+  google_provider_token  String?
+  google_refresh_token   String?
+  token_expiry           DateTime?         @db.Timestamp(6)
+  created_at             DateTime          @default(now()) @db.Timestamp(6)
+  nomor_hp               String?
+  role                   String?
+  kegiatan_dibuat        Kegiatan[]        @relation("KegiatanDibuatOleh")
+  pesertaKegiatan        KegiatanUser[]
+  timKerja_dipimpin      TimKerja[]        @relation("KetuaTim")
+  timKerjaUser           TimKerjaUser[]
+  jobs                   Jobs[]
+}
+
+model Kegiatan {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nama            String
+  deskripsi       String?
+  tanggal_mulai   DateTime       @db.Timestamp(6)
+  tanggal_selesai DateTime       @db.Timestamp(6)
+  timkerjaId      String?        @db.Uuid
+  created_by      String         @db.Uuid
+  calender        String?
+  dibuat_oleh     User           @relation("KegiatanDibuatOleh", fields: [created_by], references: [id], onDelete: Cascade)
+  timKerja        TimKerja?      @relation(fields: [timkerjaId], references: [id], onDelete: Cascade)
+  peserta         KegiatanUser[]
+  jobs            Jobs[]
+
+  @@index([created_by])
+  @@index([timkerjaId])
+}
+
+model KegiatanUser {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kegiatanId     String    @db.Uuid
+  userId         String    @db.Uuid
+  google_event_id String?
+  kegiatan       Kegiatan  @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([kegiatanId])
+  @@index([userId])
+}
+
+model TimKerja {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nama       String
+  ketuaTimId String         @db.Uuid
+  kegiatan   Kegiatan[]
+  ketuaTim   User           @relation("KetuaTim", fields: [ketuaTimId], references: [id], onDelete: Cascade)
+  anggota    TimKerjaUser[]
+
+  @@index([ketuaTimId])
+}
+
+model TimKerjaUser {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timkerjaId String    @db.Uuid
+  userId     String    @db.Uuid
+  timKerja   TimKerja  @relation(fields: [timkerjaId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([timkerjaId])
+  @@index([userId])
+}
+
+model Jobs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String   @db.Uuid
+  kegiatan_id String   @db.Uuid
+  message     String
+  status      String   @default("pending") // pending | processing | done | failed
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  user        User     @relation(fields: [user_id], references: [id])
+  kegiatan    Kegiatan @relation(fields: [kegiatan_id], references: [id])
+
+  @@index([user_id])
+}

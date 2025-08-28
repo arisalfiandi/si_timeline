@@ -5,19 +5,20 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useSidebar } from '../context/SidebarContext';
 import {
-  BoxCubeIcon,
+  // BoxCubeIcon,
   CalenderIcon,
-  ChevronDownIcon,
-  GridIcon,
+  // GridIcon,
   HorizontaLDots,
-  ListIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
+  // ListIcon,
+  // PageIcon,
   UserCircleIcon,
+  // PlugInIcon,
+  GroupIcon,
+  UserIcon,
+  TaskIcon,
 } from '../icons/index';
-import SidebarWidget from './SidebarWidget';
+// import SidebarWidget from './SidebarWidget';
+import { useSession } from 'next-auth/react';
 
 type NavItem = {
   name: string;
@@ -26,72 +27,97 @@ type NavItem = {
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
-const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: 'Dashboard',
-    path: '/',
-  },
-  {
-    icon: <CalenderIcon />,
-    name: 'Calendar',
-    path: '/calendar',
-  },
+// const navItems: NavItem[] = [
+//   {
+//     icon: <CalenderIcon />,
+//     name: 'Dashboard',
+//     path: '/',
+//   },
+//   // {
+//   //   icon: <CalenderIcon />,
+//   //   name: 'Calendar',
+//   //   path: '/calendar',
+//   // },
 
-  {
-    name: 'Forms',
-    icon: <ListIcon />,
-    path: '/form-elements',
-  },
-  {
-    name: 'Tables',
-    icon: <TableIcon />,
-    subItems: [{ name: 'Basic Tables', path: '/basic-tables', pro: false }],
-  },
-  {
-    name: 'Pages',
-    icon: <PageIcon />,
-    subItems: [
-      { name: 'Blank Page', path: '/blank', pro: false },
-      { name: '404 Error', path: '/error-404', pro: false },
-    ],
-  },
-];
+//   {
+//     name: 'Buat Kegiatan',
+//     icon: <TaskIcon />,
+//     path: '/form-kegiatan',
+//   },
+//   {
+//     name: 'Tim Kerja',
+//     icon: <GroupIcon />,
+//     path: '/tim-kerja',
+//   },
+//   {
+//     name: 'Akun Pengguna',
+//     icon: <UserIcon />,
+//     path: '/akun-pengguna',
+//   },
+//   // {
+//   //   name: 'Pages',
+//   //   icon: <PageIcon />,
+//   //   subItems: [
+//   //     { name: 'Blank Page', path: '/blank', pro: false },
+//   //     { name: '404 Error', path: '/error-404', pro: false },
+//   //   ],
+//   // },
+// ];
 
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: 'Charts',
-    subItems: [
-      { name: 'Line Chart', path: '/line-chart', pro: false },
-      { name: 'Bar Chart', path: '/bar-chart', pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: 'UI Elements',
-    subItems: [
-      { name: 'Alerts', path: '/alerts', pro: false },
-      { name: 'Avatar', path: '/avatars', pro: false },
-      { name: 'Badge', path: '/badge', pro: false },
-      { name: 'Buttons', path: '/buttons', pro: false },
-      { name: 'Images', path: '/images', pro: false },
-      { name: 'Videos', path: '/videos', pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: 'Authentication',
-    subItems: [
-      { name: 'Sign In', path: '/signin', pro: false },
-      { name: 'Sign Up', path: '/signup', pro: false },
-    ],
-  },
-];
+// const othersItems: NavItem[] = [
+//   {
+//     icon: <UserCircleIcon />,
+//     name: 'Edit Profil',
+//     path: '/profile',
+//   },
+//   // {
+//   //   icon: <PlugInIcon />,
+//   //   name: 'Sign Out',
+//   //   path: '/signin',
+//   // },
+// ];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+
+  const { data: session } = useSession();
+
+  const navItems: NavItem[] = [
+    {
+      icon: <CalenderIcon />,
+      name: 'Dashboard',
+      path: '/',
+    },
+    {
+      name: 'Buat Kegiatan',
+      icon: <TaskIcon />,
+      path: '/form-kegiatan',
+    },
+    {
+      name: 'Tim Kerja',
+      icon: <GroupIcon />,
+      path: '/tim-kerja',
+    },
+    // hanya admin bisa lihat
+    ...(session?.user?.role === 'admin'
+      ? [
+          {
+            name: 'Akun Pengguna',
+            icon: <UserIcon />,
+            path: '/akun-pengguna',
+          } as NavItem,
+        ]
+      : []),
+  ];
+
+  const othersItems: NavItem[] = [
+    {
+      icon: <UserCircleIcon />,
+      name: 'Edit Profil',
+      path: '/profile',
+    },
+  ];
 
   const renderMenuItems = (
     navItems: NavItem[],
@@ -298,14 +324,14 @@ const AppSidebar: React.FC = () => {
             <>
               <Image
                 className="dark:hidden"
-                src="/images/logo/logo.svg"
+                src="/images/logo/logo-t.svg"
                 alt="Logo"
                 width={150}
-                height={40}
+                height={5}
               />
               <Image
                 className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
+                src="/images/logo/logo-g.svg"
                 alt="Logo"
                 width={150}
                 height={40}
@@ -313,7 +339,7 @@ const AppSidebar: React.FC = () => {
             </>
           ) : (
             <Image
-              src="/images/logo/logo-icon.svg"
+              src="/images/logo/logo-pic.svg"
               alt="Logo"
               width={32}
               height={32}
@@ -350,7 +376,7 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  'Others'
+                  'Profil'
                 ) : (
                   <HorizontaLDots />
                 )}

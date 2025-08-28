@@ -16,118 +16,232 @@ import { Modal } from '@/components/ui/modal';
 import DatePicker from '@/components/form/date-picker';
 import idLocale from '@fullcalendar/core/locales/id';
 
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Select from '@mui/material/Select';
+
+// import Chip from '@mui/material/Chip';
+// import Box from '@mui/material/Box';
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
+
+// swall
+import Swal from 'sweetalert2';
+
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+
 interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
   };
 }
 
-const Calendar: React.FC = () => {
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-    null,
-  );
+interface UserProfile {
+  id: string;
+  name: string | null;
+}
+
+interface CalendarProfile {
+  id: string;
+  nama: string;
+  deskripsi: string | null;
+  tanggal_mulai: Date;
+  tanggal_selesai: Date;
+  timkerjaId: string | null;
+  calender: string | null;
+  dibuat_oleh: {
+    email: string;
+  };
+  timKerja: {
+    id: string;
+    nama: string;
+  } | null;
+  peserta: {
+    google_event_id: string | null;
+    user: UserProfile;
+  }[];
+}
+
+interface GoogleEventId {
+  id: string;
+  name: string | null;
+  google_event_id: string | null;
+}
+
+interface UserCalendar {
+  id: string;
+  // google_event_id: string | null;
+  kegiatan: CalendarProfile; // bukan array!
+}
+
+interface Props {
+  data: UserCalendar[];
+}
+
+export default function DefaultInputs({ data }: Props) {
+  const router = useRouter();
+
+  const { data: session } = useSession();
+  // const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
+  //   null,
+  // );
   const [eventTitle, setEventTitle] = useState('');
+  const [eventId, setEventId] = useState('0');
+  const [eventMaker, setEventMaker] = useState('');
+  const [eventDeskripsi, setEventDeskripsi] = useState('');
   const [eventStartDate, setEventStartDate] = useState('');
   const [eventEndDate, setEventEndDate] = useState('');
-  const [eventLevel, setEventLevel] = useState('');
+  const [eventTimName, setEventTimName] = useState('');
+  const [peserta, setPeserta] = useState<GoogleEventId[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  // const [googleId, setGoogleId] = useState<GoogleEventId[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
-  const calendarsEvents = {
-    Danger: 'danger',
-    Success: 'success',
-    Primary: 'primary',
-    Warning: 'warning',
-  };
-
   useEffect(() => {
-    // Initialize with some events
-    const startDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 hari dari sekarang
-    // Menghitung tanggal akhir (2 hari setelah startDate)
-    const endDate = new Date(startDate.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 hari setelah startDate
+    if (data && data.length > 0) {
+      const colors = ['success', 'primary', 'danger']; // daftar pilihan
 
-    // PENTING: Atur waktu akhir agar tidak menjadi 00:00 hari berikutnya
-    // Misalnya, jika event berakhir pada sore hari, set jam/menitnya
-    endDate.setHours(17, 0, 0, 0); // Mengatur waktu akhir menjadi 17:00 (5 sore)
+      const mappedEvents: CalendarEvent[] = data.map((item) => {
+        const kegiatan = item.kegiatan;
 
-    setEvents([
-      {
-        id: '1',
-        title: 'Event Conf.',
-        start: new Date().toISOString().split('T')[0],
-        extendedProps: { calendar: 'Danger' },
-      },
-      {
-        id: '2',
-        title: 'Meeting',
-        start: new Date().toISOString().split('T')[0],
-        extendedProps: { calendar: 'Success' },
-      },
-      {
-        id: '3',
-        title: 'Workshop',
-        start: startDate.toISOString(), // Sekarang ini akan memiliki waktu juga
-        // Menggunakan ISO string penuh untuk end (termasuk waktu)
-        end: endDate.toISOString(), // Sekarang ini akan memiliki waktu akhir yang spesifik
-        extendedProps: { calendar: 'Primary' },
-      },
-    ]);
-  }, []);
+        // pilih acak salah satu warna
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+        return {
+          id: kegiatan.id.toString(),
+          title: kegiatan.nama,
+          start: kegiatan.tanggal_mulai.toISOString(),
+          end: kegiatan.tanggal_selesai.toISOString(),
+          extendedProps: {
+            calendar: kegiatan.calender ? kegiatan.calender : randomColor, // isi acak
+            deskripsi: kegiatan.deskripsi,
+            timkerjaId: kegiatan.timKerja?.nama
+              ? kegiatan.timKerja?.nama
+              : 'Pribadi',
+            peserta: kegiatan.peserta.map((p) => ({
+              id: p.user.id,
+              name: p.user.name,
+              google_event_id: p.google_event_id,
+            })),
+            // google_event_id: kegiatan.peserta.map((p) => p.google_event_id),
+            dibuat_oleh: kegiatan.dibuat_oleh.email,
+            // google_event_id: item.google_event_id,
+          },
+        };
+      });
+
+      // const google_event_id: GoogleEventId[] = data.map((event) => ({
+      //   google_event_id: event.google_event_id,
+      // }));
+      // setGoogleId(google_event_id);
+
+      setEvents(mappedEvents);
+    }
+  }, [data]);
 
   const handleDateSelect = (selectInfo: DateSelectArg) => {
+    console.log(selectInfo);
     resetModalFields();
     openModal();
   };
 
   const handleEventClick = (clickInfo: EventClickArg) => {
     const event = clickInfo.event;
-    setSelectedEvent(event as unknown as CalendarEvent);
+    setEventId(event.id || '0');
     setEventTitle(event.title);
+    setEventMaker(event.extendedProps.dibuat_oleh || '');
+    setEventDeskripsi(event.extendedProps.deskripsi || '');
     setEventStartDate(event.start?.toISOString() || '');
     setEventEndDate(event.end?.toISOString() || '');
-    setEventLevel(event.extendedProps.calendar);
+    setEventTimName(event.extendedProps.timkerjaId || '');
+    setPeserta(event.extendedProps.peserta || []);
+    // setGoogleId(event.extendedProps.google_event_id || []);
     openModal();
   };
 
-  const handleAddOrUpdateEvent = () => {
-    if (selectedEvent) {
-      // Update existing event
-      setEvents((prevEvents) =>
-        prevEvents.map((event) =>
-          event.id === selectedEvent.id
-            ? {
-                ...event,
-                title: eventTitle,
-                start: eventStartDate,
-                end: eventEndDate,
-                extendedProps: { calendar: eventLevel },
-              }
-            : event,
-        ),
-      );
-    } else {
-      // Add new event
-      const newEvent: CalendarEvent = {
-        id: Date.now().toString(),
-        title: eventTitle,
-        start: eventStartDate,
-        end: eventEndDate,
-        allDay: true,
-        extendedProps: { calendar: eventLevel },
-      };
-      setEvents((prevEvents) => [...prevEvents, newEvent]);
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/kegiatan/${id}`, {
+        method: 'DELETE',
+        body: JSON.stringify({
+          google_event_id: peserta,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        Swal.fire({
+          title: 'Berhasil Menghapus Kegiatan!',
+          text: '',
+          icon: 'success',
+          confirmButtonColor: '#68B92E',
+          confirmButtonText: 'OK',
+        }).then(() => {
+          window.location.reload();
+        });
+      } else {
+        const error = await res.json();
+        Swal.fire({
+          title: 'Gagal Menghapus Kegiatan!',
+          text: error.error,
+          icon: 'error',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'OK',
+        });
+      }
+    } catch (error) {
+      console.log(error);
+      Swal.fire({
+        title: 'Gagal Menghapus Kegiatan!',
+        text: 'Coba lagi nanti',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+      });
     }
-    closeModal();
-    resetModalFields();
   };
+
+  // const handleAddOrUpdateEvent = () => {
+  //   if (selectedEvent) {
+  //     // Update existing event
+  //     setEvents((prevEvents) =>
+  //       prevEvents.map((event) =>
+  //         event.id === selectedEvent.id
+  //           ? {
+  //               ...event,
+  //               title: eventTitle,
+  //               start: eventStartDate,
+  //               end: eventEndDate,
+  //               extendedProps: { calendar: eventLevel },
+  //             }
+  //           : event,
+  //       ),
+  //     );
+  //   } else {
+  //     // Add new event
+  //     const newEvent: CalendarEvent = {
+  //       id: Date.now().toString(),
+  //       title: eventTitle,
+  //       start: eventStartDate,
+  //       end: eventEndDate,
+  //       allDay: true,
+  //       extendedProps: { calendar: eventLevel },
+  //     };
+  //     setEvents((prevEvents) => [...prevEvents, newEvent]);
+  //   }
+  //   closeModal();
+  //   resetModalFields();
+  // };
 
   const resetModalFields = () => {
     setEventTitle('');
     setEventStartDate('');
     setEventEndDate('');
-    setEventLevel('');
-    setSelectedEvent(null);
+    // setEventLevel('');
+    // setSelectedEvent(null);
   };
 
   return (
@@ -176,7 +290,7 @@ const Calendar: React.FC = () => {
               track
             </p> */}
           </div>
-          <div className="mt-8">
+          <div className="mt-2">
             <div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
@@ -192,7 +306,22 @@ const Calendar: React.FC = () => {
                 />
               </div>
             </div>
-            {/* <div className="mt-6">
+            <div className="mt-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                  Deskripsi Kegiatan
+                </label>
+                <input
+                  disabled
+                  id="event-title"
+                  type="text"
+                  value={eventDeskripsi}
+                  onChange={(e) => setEventDeskripsi(e.target.value)}
+                  className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                />
+              </div>
+            </div>
+            {/* <div className="mt-3">
               <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
                 Warna Kegiatan
               </label>
@@ -233,7 +362,7 @@ const Calendar: React.FC = () => {
               </div>
             </div> */}
 
-            <div className="mt-6">
+            <div className="mt-3">
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                 Tanggal Mulai
               </label>
@@ -251,7 +380,7 @@ const Calendar: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-3">
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                 Tanggal Berhenti
               </label>
@@ -266,28 +395,93 @@ const Calendar: React.FC = () => {
                 }}
               />
             </div>
+            <div className="mt-3">
+              <FormControl variant="standard" fullWidth disabled>
+                <InputLabel id="demo-multiple-chip-label">Tim Kerja</InputLabel>
+                <Select
+                  labelId="demo-multiple-chip-label"
+                  id="demo-multiple-chip"
+                  value={eventTimName}
+                  // renderValue={
+                  //   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  //     <Chip label={eventTimName} />
+                  //   </Box>
+                  // }
+                >
+                  <MenuItem
+                    value={eventTimName}
+                    // style={getStyles(name, personName, theme)}
+                  >
+                    {eventTimName}
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+
+            <div className="mt-3">
+              <Autocomplete
+                disabled
+                multiple
+                id="anggota-tim"
+                options={peserta}
+                getOptionLabel={(option) => option.name || ''}
+                value={peserta}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    variant="standard"
+                    label="Peserta Kegiatan"
+                    placeholder="Pilih anggota"
+                  />
+                )}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
-            <button
-              onClick={closeModal}
-              type="button"
-              className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
-            >
-              Tutup
-            </button>
-            {/* <button
+          {eventMaker === session?.user?.email ? (
+            <div className="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
+              <button
+                onClick={() => {
+                  closeModal();
+                  Swal.fire({
+                    title: 'Yakin hapus kegiatan ' + eventTitle + '?',
+                    text: '',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Hapus',
+                  }).then((result) => {
+                    if (result.isConfirmed) {
+                      handleDelete(eventId);
+                    }
+                  });
+                }}
+                type="button"
+                className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+              >
+                Hapus
+              </button>
+              <button
+                onClick={() => router.push(`/form-kegiatan/edit/${eventId}`)}
+                type="button"
+                className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+              >
+                Edit
+              </button>
+              {/* <button
               onClick={handleAddOrUpdateEvent}
               type="button"
               className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
             >
               {selectedEvent ? 'Update Changes' : 'Add Event'}
             </button> */}
-          </div>
+            </div>
+          ) : null}
         </div>
       </Modal>
     </div>
   );
-};
+}
 
 const renderEventContent = (eventInfo: EventContentArg) => {
   const colorClass = `fc-bg-${eventInfo.event.extendedProps.calendar.toLowerCase()}`;
@@ -301,5 +495,3 @@ const renderEventContent = (eventInfo: EventContentArg) => {
     </div>
   );
 };
-
-export default Calendar;

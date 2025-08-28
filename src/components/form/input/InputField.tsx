@@ -1,11 +1,12 @@
-import React, { FC } from "react";
+import React, { FC } from 'react';
 
 interface InputProps {
-  type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
+  type?: 'text' | 'number' | 'email' | 'password' | 'date' | 'time' | string;
   id?: string;
   name?: string;
   placeholder?: string;
   defaultValue?: string | number;
+  value?: string | number;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   className?: string;
   min?: string;
@@ -18,13 +19,14 @@ interface InputProps {
 }
 
 const Input: FC<InputProps> = ({
-  type = "text",
+  type = 'text',
   id,
   name,
   placeholder,
   defaultValue,
+  value,
   onChange,
-  className = "",
+  className = '',
   min,
   max,
   step,
@@ -55,6 +57,7 @@ const Input: FC<InputProps> = ({
         name={name}
         placeholder={placeholder}
         defaultValue={defaultValue}
+        value={value}
         onChange={onChange}
         min={min}
         max={max}
@@ -68,10 +71,10 @@ const Input: FC<InputProps> = ({
         <p
           className={`mt-1.5 text-xs ${
             error
-              ? "text-error-500"
+              ? 'text-error-500'
               : success
-              ? "text-success-500"
-              : "text-gray-500"
+              ? 'text-success-500'
+              : 'text-gray-500'
           }`}
         >
           {hint}

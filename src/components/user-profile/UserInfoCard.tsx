@@ -1,36 +1,129 @@
-"use client";
-import React from "react";
-import { useModal } from "../../hooks/useModal";
-import { Modal } from "../ui/modal";
-import Button from "../ui/button/Button";
-import Input from "../form/input/InputField";
-import Label from "../form/Label";
+'use client';
+import { useEffect, useState } from 'react';
+import { useModal } from '../../hooks/useModal';
+import { Modal } from '../ui/modal';
+import { Button } from '@mui/material';
+import Input from '../form/input/InputField';
+import Label from '../form/Label';
 
-export default function UserInfoCard() {
+// third party
+import Swal from 'sweetalert2';
+// import { redirect } from 'next/navigation';
+
+interface TimKerja {
+  id: string;
+  nama: string;
+}
+
+interface UserProfile {
+  id: string;
+  name: string | null;
+  email: string;
+  nomor_hp: string;
+  role: string | null;
+  timKerjaUser: {
+    timKerja: TimKerja;
+  }[];
+}
+
+interface Props {
+  data: UserProfile | null;
+}
+
+export default function UserInfoCard({ data }: Props) {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    if (data) {
+      setProfile(data);
+    }
+  }, [data]);
+
+  // useEffect(() => {
+  //   fetch('/api/user')
+  //     .then((res) => res.json())
+  //     .then((data) => setProfile(data));
+  // }, []);
+
   const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-    closeModal();
+
+  const [nomorHp, setNomorHp] = useState<string>('');
+
+  useEffect(() => {
+    if (profile?.nomor_hp) {
+      setNomorHp(profile.nomor_hp);
+    }
+  }, [profile]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const res = await fetch('/api/user/nomorhp', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        email: profile?.email,
+        nomor_hp: nomorHp,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!res) {
+      Swal.fire({
+        title: 'Gagal Mengubah Nomor HP',
+        text: 'Tidak ada respons dari server.',
+        icon: 'error',
+      });
+      return;
+    }
+
+    const result = await res.json().catch(() => null); // cegah error JSON.parse
+
+    if (res.status == 200) {
+      Swal.fire({
+        title: 'Berhasil',
+        text: `Berhasil Mengubah Nomor HP`,
+        icon: 'success',
+        didOpen: () => {
+          document.body.style.overflow = 'hidden';
+        },
+        didClose: () => {
+          document.body.style.overflow = 'auto';
+        },
+      });
+      // if (profile) {
+      //   setProfile({ ...profile, nomor_hp: nomorHp });
+      // }
+      setProfile((prev) => (prev ? { ...prev, nomor_hp: nomorHp } : prev));
+      closeModal();
+      window.location.reload();
+    } else {
+      Swal.fire({
+        title: 'Gagal',
+        text: result?.error || 'Terjadi Kesalahan, Gagal Mengubah Nomor HP',
+        icon: 'error',
+      });
+      closeModal();
+    }
   };
+
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90 lg:mb-6">
-            Personal Information
+            Informasi Akun
           </h4>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7 2xl:gap-x-32">
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                First Name
+                Nama
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Musharof
+                {profile?.name}
               </p>
             </div>
-
+            {/* 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
                 Last Name
@@ -38,33 +131,39 @@ export default function UserInfoCard() {
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                 Chowdhury
               </p>
-            </div>
+            </div> */}
 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Email address
+                Email
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                randomuser@pimjo.com
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Phone
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                +09 363 398 46
+                {profile?.email}
               </p>
             </div>
 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Bio
+                Nomor HP
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Team Manager
+                {profile?.nomor_hp}
               </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+                Tim Kerja
+              </p>
+              <ul className="text-sm font-medium text-gray-800 dark:text-white/90">
+                {profile?.timKerjaUser
+                  ? profile?.timKerjaUser.length > 0
+                    ? profile.timKerjaUser.map((rel) => (
+                        <li key={rel.timKerja.id}>{rel.timKerja.nama}, </li>
+                      ))
+                    : 'Belum tergabung dalam tim kerja'
+                  : 'Belum tergabung dalam tim kerja'}
+              </ul>
             </div>
           </div>
         </div>
@@ -96,15 +195,15 @@ export default function UserInfoCard() {
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-              Edit Personal Information
+              Edit Nomor HP
             </h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-              Update your details to keep your profile up-to-date.
+              Perbarui Nomor HP Anda
             </p>
           </div>
-          <form className="flex flex-col">
-            <div className="custom-scrollbar h-[450px] overflow-y-auto px-2 pb-3">
-              <div>
+          <form className="flex flex-col" onSubmit={handleSave}>
+            <div className="custom-scrollbar overflow-y-auto px-2 pb-3">
+              {/* <div>
                 <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                   Social Links
                 </h5>
@@ -139,14 +238,14 @@ export default function UserInfoCard() {
                     />
                   </div>
                 </div>
-              </div>
+              </div> */}
               <div className="mt-7">
-                <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+                {/* <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                   Personal Information
-                </h5>
+                </h5> */}
 
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                  <div className="col-span-2 lg:col-span-1">
+                  {/* <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
                     <Input type="text" defaultValue="Musharof" />
                   </div>
@@ -164,22 +263,24 @@ export default function UserInfoCard() {
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Phone</Label>
                     <Input type="text" defaultValue="+09 363 398 46" />
-                  </div>
+                  </div> */}
 
                   <div className="col-span-2">
-                    <Label>Bio</Label>
-                    <Input type="text" defaultValue="Team Manager" />
+                    <Label>Nomor HP</Label>
+                    <Input
+                      type="text"
+                      value={nomorHp}
+                      onChange={(e) => setNomorHp(e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-              <Button size="sm" variant="outline" onClick={closeModal}>
+              <Button variant="outlined" onClick={closeModal}>
                 Close
               </Button>
-              <Button size="sm" onClick={handleSave}>
-                Save Changes
-              </Button>
+              <Button type="submit">Save</Button>
             </div>
           </form>
         </div>

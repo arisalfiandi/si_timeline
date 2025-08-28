@@ -1,120 +1,260 @@
-"use client";
-import React, { useState } from 'react';
+'use client';
+import React from 'react';
 import ComponentCard from '../../common/ComponentCard';
 import Label from '../Label';
 import Input from '../input/InputField';
-import Select from '../Select';
-import { ChevronDownIcon, EyeCloseIcon, EyeIcon, TimeIcon } from '../../../icons';
 import DatePicker from '@/components/form/date-picker';
+import Chip from '@mui/material/Chip';
+import Box from '@mui/material/Box';
+import Autocomplete from '@mui/material/Autocomplete';
+import TextField from '@mui/material/TextField';
+// import OutlinedInput from '@mui/material/OutlinedInput';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import { Button } from '@mui/material';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
-export default function DefaultInputs() {
-  const [showPassword, setShowPassword] = useState(false);
-  const options = [
-    { value: "marketing", label: "Marketing" },
-    { value: "template", label: "Template" },
-    { value: "development", label: "Development" },
-  ];
-  const handleSelectChange = (value: string) => {
-    console.log("Selected value:", value);
+// swall
+import Swal from 'sweetalert2';
+
+interface UserProfile {
+  id: string;
+  name: string | null;
+}
+
+interface TimProfile {
+  id: string;
+  nama: string;
+  ketuaTimId: string;
+  ketuaTim: UserProfile;
+  anggota: {
+    user: UserProfile; // per item anggota punya 1 user
+  }[];
+}
+
+interface Props {
+  dataUser: UserProfile[];
+  dataTim: TimProfile[];
+}
+
+export default function DefaultInputs({ dataUser, dataTim }: Props) {
+  const router = useRouter();
+  const { data: session } = useSession();
+
+  // state form
+  const [namaKegiatan, setNamaKegiatan] = React.useState<string>('');
+  const [deskripsi, setDeskripsi] = React.useState<string>('');
+  const [tanggalMulai, setTanggalMulai] = React.useState<string>('');
+  const [tanggalSelesai, setTanggalSelesai] = React.useState<string>('');
+  const [peserta, setPeserta] = React.useState<UserProfile[]>([]);
+  const [timKerja, setTimKerja] = React.useState<string>('0');
+
+  const newTim = {
+    id: '0',
+    nama: 'Pribadi',
+    ketuaTimId: 'sadkhjdsaj',
+    ketuaTim: {
+      id: 'sadkhjdsaj',
+      name: session?.user?.name || 'Unknown',
+    },
+    anggota: [], // kosong dulu, nanti bisa isi
   };
+
+  React.useEffect(() => {
+    const userLogin = dataUser.find((u) => u.name === session?.user?.name);
+    if (userLogin) {
+      setPeserta([userLogin]);
+    }
+  }, [dataUser, session?.user?.name]);
+
+  const updatedDataTim = [...dataTim, newTim];
+
+  const handleChangeTim = (event: SelectChangeEvent<string>) => {
+    const selectedId = event.target.value;
+    // cari tim yang dipilih
+    const selectedTim = dataTim.find(
+      (t) => t.id === selectedId && t.id !== '0',
+    );
+    if (selectedTim) {
+      setTimKerja(selectedTim.id);
+      setPeserta(selectedTim.anggota.map((a) => a.user));
+    } else {
+      setTimKerja('0');
+      const userLogin = dataUser.find((u) => u.name === session?.user?.name);
+      if (userLogin) {
+        setPeserta([userLogin]); // harus array
+      } else {
+        setPeserta([]); // fallback kalau ga ketemu
+      }
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      const res = await fetch('/api/kegiatan', {
+        method: 'POST',
+        body: JSON.stringify({
+          nama: namaKegiatan,
+          deskripsi: deskripsi,
+          tanggal_mulai: tanggalMulai,
+          tanggal_selesai: tanggalSelesai,
+          timkerjaId: timKerja,
+          peserta: peserta,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.status === 200) {
+        Swal.fire({
+          title: 'Berhasil Membuat Kegiatan!',
+          text: '',
+          icon: 'success',
+          confirmButtonColor: '#68B92E',
+          confirmButtonText: 'OK',
+        }).then(() => {
+          router.push('/');
+        });
+      } else {
+        Swal.fire({
+          title: 'Gagal Membuat Kegiatan!',
+          text: 'Coba lagi nanti',
+          icon: 'error',
+          confirmButtonColor: '#d33',
+          confirmButtonText: 'OK',
+        });
+      }
+    } catch (error) {
+      console.log(error);
+      Swal.fire({
+        title: 'Gagal Membuat Kegiatan!',
+        text: 'Coba lagi nanti',
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'OK',
+      });
+    }
+  };
+
   return (
-    <ComponentCard title="Default Inputs">
-      <div className="space-y-6">
-        <div>
-          <Label>Input</Label>
-          <Input type="text" />
-        </div>
-        <div>
-          <Label>Input with Placeholder</Label>
-          <Input type="text" placeholder="info@gmail.com" />
-        </div>
-        <div>
-          <Label>Select Input</Label>
-          <div className="relative">
-            <Select
-            options={options}
-            placeholder="Select an option"
-            onChange={handleSelectChange}
-            className="dark:bg-dark-900"
-          />
-             <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-              <ChevronDownIcon/>
-            </span>
-          </div>
-        </div>
-        <div>
-          <Label>Password Input</Label>
-          <div className="relative">
-            <Input
-              type={showPassword ? "text" : "password"}
-              placeholder="Enter your password"
-            />
-            <button
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute z-30 -translate-y-1/2 cursor-pointer right-4 top-1/2"
-            >
-              {showPassword ? (
-                <EyeIcon className="fill-gray-500 dark:fill-gray-400" />
-              ) : (
-                <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <DatePicker
-            id="date-picker"
-            label="Date Picker Input"
-            placeholder="Select a date"
-            onChange={(dates, currentDateString) => {
-              // Handle your logic
-              console.log({ dates, currentDateString });
-            }}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="tm">Time Picker Input</Label>
-          <div className="relative">
-            <Input
-              type="time"
-              id="tm"
-              name="tm"
-              onChange={(e) => console.log(e.target.value)}
-            />
-            <span className="absolute text-gray-500 -translate-y-1/2 pointer-events-none right-3 top-1/2 dark:text-gray-400">
-              <TimeIcon />
-            </span>
-          </div>
-        </div>
-        <div>
-          <Label htmlFor="tm">Input with Payment</Label>
-          <div className="relative">
+    <ComponentCard title="Form Buat Kegiatan">
+      <form onSubmit={handleSubmit} id="subscription-form">
+        <div className="space-y-10">
+          <div>
+            <Label>Nama Kegiatan</Label>
             <Input
               type="text"
-              placeholder="Card number"
-              className="pl-[62px]"
+              placeholder="Nama Kegiatan"
+              value={namaKegiatan}
+              onChange={(e) => setNamaKegiatan(e.target.value)}
             />
-            <span className="absolute left-0 top-1/2 flex h-11 w-[46px] -translate-y-1/2 items-center justify-center border-r border-gray-200 dark:border-gray-800">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+          </div>
+          <div>
+            <Label>Deskripsi Kegiatan (Opsional)</Label>
+            <Input
+              type="text"
+              placeholder="Deskripsi"
+              value={deskripsi}
+              onChange={(e) => setDeskripsi(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <DatePicker
+              id="date-picker-start"
+              label="Waktu Mulai"
+              placeholder="Pilih Waktu Mulai"
+              value={tanggalMulai}
+              onClose={(selectedDatesStart: Date[]) => {
+                if (selectedDatesStart.length > 0) {
+                  setTanggalMulai(selectedDatesStart[0].toISOString()); // simpan string ISO
+                }
+              }}
+            />
+          </div>
+
+          <div>
+            <DatePicker
+              id="date-picker-end"
+              label="Waktu Selesai"
+              placeholder="Pilih Waktu Selesai"
+              value={tanggalSelesai}
+              onClose={(selectedDates: Date[]) => {
+                if (selectedDates.length > 0) {
+                  setTanggalSelesai(selectedDates[0].toISOString()); // simpan string ISO
+                }
+              }}
+            />
+          </div>
+
+          <div>
+            <FormControl variant="standard" fullWidth>
+              <InputLabel id="demo-multiple-chip-label">Tim Kerja</InputLabel>
+              <Select
+                disabled={session?.user.role !== 'ketuaTim'}
+                labelId="demo-multiple-chip-label"
+                id="demo-multiple-chip"
+                value={timKerja}
+                onChange={handleChangeTim}
+                renderValue={(selectedId) => {
+                  const selectedTim = updatedDataTim.find(
+                    (u) => u.id === selectedId,
+                  );
+                  return (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      <Chip
+                        label={
+                          `${selectedTim?.nama} - ${selectedTim?.ketuaTim.name}` ||
+                          selectedId
+                        }
+                      />
+                    </Box>
+                  );
+                }}
+                // MenuProps={MenuProps}
               >
-                <circle cx="6.25" cy="10" r="5.625" fill="#E80B26" />
-                <circle cx="13.75" cy="10" r="5.625" fill="#F59D31" />
-                <path
-                  d="M10 14.1924C11.1508 13.1625 11.875 11.6657 11.875 9.99979C11.875 8.33383 11.1508 6.8371 10 5.80713C8.84918 6.8371 8.125 8.33383 8.125 9.99979C8.125 11.6657 8.84918 13.1625 10 14.1924Z"
-                  fill="#FC6020"
+                {updatedDataTim.map((tim) => (
+                  <MenuItem
+                    key={tim.id}
+                    value={tim.id}
+                    // style={getStyles(name, personName, theme)}
+                  >
+                    {tim.nama} - {tim.ketuaTim.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </div>
+
+          <div>
+            <Autocomplete
+              disabled={session?.user.role !== 'ketuaTim'}
+              multiple
+              id="anggota-tim"
+              options={dataUser}
+              getOptionLabel={(option) => option.name || ''}
+              value={peserta}
+              onChange={(_, newValue) => setPeserta(newValue)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="standard"
+                  label="Peserta Kegiatan"
+                  placeholder="Pilih Peserta"
                 />
-              </svg>
-            </span>
+              )}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button variant="contained" type="submit" form="subscription-form">
+              Kirim
+            </Button>
           </div>
         </div>
-      </div>
+      </form>
     </ComponentCard>
   );
 }
