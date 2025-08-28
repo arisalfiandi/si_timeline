@@ -74,7 +74,7 @@ export default function SignInForm() {
           <p className="text-sm text-gray-400">
             Dengan sign in, Anda menyetujui{' '}
             <a
-              href="http://localhost:3000/kebijakan/privacy-policy"
+              href="https://sipete8204.vercel.app/kebijakan/privacy-policy"
               className="text-blue-600 underline"
               target="_blank"
             >
@@ -82,7 +82,7 @@ export default function SignInForm() {
             </a>{' '}
             Sipete. Jangan lupa baca{' '}
             <a
-              href="http://localhost:3000/kebijakan/privacy-policy"
+              href="https://sipete8204.vercel.app/kebijakan/privacy-policy"
               className="text-blue-600 underline"
               target="_blank"
             >
