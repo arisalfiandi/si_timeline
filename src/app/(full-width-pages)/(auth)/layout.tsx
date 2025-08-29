@@ -30,7 +30,15 @@ export default function AuthLayout({
                   />
                 </Link>
                 <p className="text-center text-gray-400 dark:text-white/60">
-                  Sistem Informasi Pengingat Tenggat Waktu
+                  (Sistem Informasi Pengingat Tenggat Waktu)
+                </p>
+                <br />
+                <p className="text-center text-gray-400 dark:text-white/60">
+                  Sipete adalah aplikasi sederhana yang digunakan untuk membantu
+                  ketua proyek membuat kegiatan bersama anggota tim. Sipete
+                  hanya dapat membuat, mengubah, atau menghapus acara yang
+                  dibuat melalui aplikasi ini, dan tidak membaca ataupun
+                  mengakses acara lain yang sudah ada di kalender pengguna.
                 </p>
               </div>
             </div>
