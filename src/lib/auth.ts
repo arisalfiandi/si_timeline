@@ -50,15 +50,20 @@ export const authOptions: NextAuthOptions = {
           .eq('provider', 'local')
           .single();
 
-        console.log('user:', user, 'error:', error);
+        console.log('error:', error);
         if (!user) return null;
 
-        console.log(user);
+        // console.log(user);
 
         const isValid = await bcrypt.compare(
           credentials!.password,
           user.password_hash,
         );
+
+        console.log('input password:', credentials?.password);
+        console.log('hash in db:', user.password_hash);
+        console.log('isValid:', isValid);
+
         return isValid ? user : null;
       },
     }),
@@ -94,11 +99,10 @@ export const authOptions: NextAuthOptions = {
           .select(); // supaya balikkan data user
 
         if (error) {
+          console.log(data);
           console.error('Supabase upsert error:', error);
           return false; // gagalkan sign in kalau insert gagal
         }
-
-        console.log(data);
 
         // console.log('Upsert result:', data);
         // console.log('Upsert error:', error);

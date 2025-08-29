@@ -6,7 +6,7 @@ export async function PUT(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
-  const timId = Number(id);
+  const timId = id;
 
   if (Number.isNaN(timId)) {
     return NextResponse.json({ error: 'Invalid team id' }, { status: 400 });
@@ -38,6 +38,8 @@ export async function PUT(
 
     const toAdd = newMemberIds.filter((x) => !oldMemberIds.includes(x));
     const toRemove = oldMemberIds.filter((x) => !newMemberIds.includes(x));
+    console.log(toAdd);
+    console.log(toRemove);
 
     // Update header tim
     const { error: updateErr } = await supabase
