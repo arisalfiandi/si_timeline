@@ -92,7 +92,7 @@ export const authOptions: NextAuthOptions = {
               google_refresh_token: refresh_token,
               token_expiry: new Date(Date.now() + (expires_at ?? 3600) * 1000),
               nomor_hp: '082xxxxxxxx',
-              role: 'pegawai',
+              // role: 'pegawai',
             },
             { onConflict: 'email' },
           )

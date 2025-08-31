@@ -20,7 +20,7 @@ model User {
   token_expiry           DateTime?         @db.Timestamp(6)
   created_at             DateTime          @default(now()) @db.Timestamp(6)
   nomor_hp               String?
-  role                   String?
+  role                   String?           @default("pegawai")
   kegiatan_dibuat        Kegiatan[]        @relation("KegiatanDibuatOleh")
   pesertaKegiatan        KegiatanUser[]
   timKerja_dipimpin      TimKerja[]        @relation("KetuaTim")
@@ -85,7 +85,7 @@ model Jobs {
   user_id     String   @db.Uuid
   kegiatan_id String   @db.Uuid
   message     String
-  status      String   @default("pending") // pending | processing | done | failed
+  status      String   @default("PENDING") // pending | processing | done | failed
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
