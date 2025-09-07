@@ -361,7 +361,11 @@ export async function PUT(
         user_id: participant.id,
         kegiatan_id: kegiatanId,
         // phone_number: participant.nomor_hp,
-        message: `[Tidak Perlu Dibalas]\nAda perubahan informasi kegiatan ${nama}.\n\n🗓️ Waktu kegiatan: ${mulaiTanggal} s.d. ${selesaiTanggal}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\nTerimakasih`,
+        message: `[Tidak Perlu Dibalas]\nAda perubahan informasi kegiatan ${nama}.\n\n🗓️ Waktu kegiatan: ${mulaiTanggal.getDate()}-${
+          mulaiTanggal.getMonth() + 1
+        }-${mulaiTanggal.getFullYear()} s.d. ${selesaiTanggal.getDate()}-${
+          selesaiTanggal.getMonth() + 1
+        }-${selesaiTanggal.getFullYear()}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\nTerimakasih`,
         status: 'PENDING',
         created_at: new Date().toISOString().split('T')[0],
         updated_at: new Date().toISOString(),
@@ -492,7 +496,11 @@ export async function PUT(
               kegiatan_id: kegiatanId,
               message: `[Tidak Perlu Dibalas]\nHalo ${
                 participant.name || 'Peserta'
-              }, anda baru saja ditambahkan ke kegiatan baru.\n\n📊 Nama: ${nama}\n🗓️ Waktu kegiatan: ${mulaiTanggal} s.d. ${selesaiTanggal}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\n\nSemangat!`,
+              }, anda baru saja ditambahkan ke kegiatan baru.\n\n📊 Nama: ${nama}\n🗓️ Waktu kegiatan: ${mulaiTanggal.getDate()}-${
+                mulaiTanggal.getMonth() + 1
+              }-${mulaiTanggal.getFullYear()} s.d. ${selesaiTanggal.getDate()}-${
+                selesaiTanggal.getMonth() + 1
+              }-${selesaiTanggal.getFullYear()}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\n\nSemangat!`,
               status: 'PENDING',
               created_at: new Date().toISOString().split('T')[0],
               updated_at: new Date().toISOString(),
