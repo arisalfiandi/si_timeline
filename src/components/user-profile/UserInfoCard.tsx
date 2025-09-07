@@ -2,13 +2,14 @@
 import { useEffect, useState } from 'react';
 import { useModal } from '../../hooks/useModal';
 import { Modal } from '../ui/modal';
-import { Button } from '@mui/material';
+
+import { Alert, Button } from '@mui/material';
 import Input from '../form/input/InputField';
 import Label from '../form/Label';
+// import { redirect } from 'next/navigation';
 
 // third party
 import Swal from 'sweetalert2';
-// import { redirect } from 'next/navigation';
 
 interface TimKerja {
   id: string;
@@ -32,6 +33,8 @@ interface Props {
 
 export default function UserInfoCard({ data }: Props) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) {
@@ -57,6 +60,13 @@ export default function UserInfoCard({ data }: Props) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (nomorHp.startsWith('0') || nomorHp.startsWith('+')) {
+      setErrorMessage(
+        'Nomor HP harus diawali dengan 62, ganti 08 dengan 628 (contoh: 62821xxxxxx).',
+      );
+      return; // hentikan submit
+    }
 
     const res = await fetch('/api/user/nomorhp', {
       method: 'PATCH',
@@ -123,15 +133,6 @@ export default function UserInfoCard({ data }: Props) {
                 {profile?.name}
               </p>
             </div>
-            {/* 
-            <div>
-              <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                Last Name
-              </p>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                Chowdhury
-              </p>
-            </div> */}
 
             <div>
               <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
@@ -156,12 +157,10 @@ export default function UserInfoCard({ data }: Props) {
                 Tim Kerja
               </p>
               <ul className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {profile?.timKerjaUser
-                  ? profile?.timKerjaUser.length > 0
-                    ? profile.timKerjaUser.map((rel) => (
-                        <li key={rel.timKerja.id}>{rel.timKerja.nama}, </li>
-                      ))
-                    : 'Belum tergabung dalam tim kerja'
+                {profile?.timKerjaUser && profile.timKerjaUser.length > 0
+                  ? profile.timKerjaUser
+                      .map((rel) => rel.timKerja.nama)
+                      .join(', ')
                   : 'Belum tergabung dalam tim kerja'}
               </ul>
             </div>
@@ -203,43 +202,7 @@ export default function UserInfoCard({ data }: Props) {
           </div>
           <form className="flex flex-col" onSubmit={handleSave}>
             <div className="custom-scrollbar overflow-y-auto px-2 pb-3">
-              {/* <div>
-                <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
-                  Social Links
-                </h5>
-
-                <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
-                  <div>
-                    <Label>Facebook</Label>
-                    <Input
-                      type="text"
-                      defaultValue="https://www.facebook.com/PimjoHQ"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>X.com</Label>
-                    <Input type="text" defaultValue="https://x.com/PimjoHQ" />
-                  </div>
-
-                  <div>
-                    <Label>Linkedin</Label>
-                    <Input
-                      type="text"
-                      defaultValue="https://www.linkedin.com/company/pimjo"
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Instagram</Label>
-                    <Input
-                      type="text"
-                      defaultValue="https://instagram.com/PimjoHQ"
-                    />
-                  </div>
-                </div>
-              </div> */}
-              <div className="mt-7">
+              <div className="mt-3">
                 {/* <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
                   Personal Information
                 </h5> */}
@@ -248,22 +211,7 @@ export default function UserInfoCard({ data }: Props) {
                   {/* <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
                     <Input type="text" defaultValue="Musharof" />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Last Name</Label>
-                    <Input type="text" defaultValue="Chowdhury" />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Email Address</Label>
-                    <Input type="text" defaultValue="randomuser@pimjo.com" />
-                  </div>
-
-                  <div className="col-span-2 lg:col-span-1">
-                    <Label>Phone</Label>
-                    <Input type="text" defaultValue="+09 363 398 46" />
-                  </div> */}
+                  </div>*/}
 
                   <div className="col-span-2">
                     <Label>Nomor HP</Label>
@@ -276,6 +224,14 @@ export default function UserInfoCard({ data }: Props) {
                 </div>
               </div>
             </div>
+
+            {errorMessage && (
+              <div>
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {errorMessage}
+                </Alert>
+              </div>
+            )}
             <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
               <Button variant="outlined" onClick={closeModal}>
                 Close

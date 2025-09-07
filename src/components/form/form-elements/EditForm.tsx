@@ -13,7 +13,13 @@ import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
-import { Button } from '@mui/material';
+import FormLabel from '@mui/material/FormLabel';
+import FormGroup from '@mui/material/FormGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+// import FormHelperText from '@mui/material/FormHelperText';
+import Checkbox from '@mui/material/Checkbox';
+
+import { Alert, Button } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
@@ -33,6 +39,10 @@ interface CalendarProfile {
   tanggal_selesai: Date;
   timkerjaId: string | null;
   calender: string | null;
+  is_lima_hari: boolean | null;
+  is_tiga_hari: boolean | null;
+  is_satu_hari: boolean | null;
+  is_hari_h: boolean | null;
   timKerja: {
     id: string;
     nama: string;
@@ -70,7 +80,26 @@ export default function DefaultInputs({ data, dataUser, dataTim }: Props) {
   const [tanggalSelesai, setTanggalSelesai] = React.useState<string>('');
   const [peserta, setPeserta] = React.useState<UserProfile[]>([]);
   const [timKerja, setTimKerja] = React.useState<string>('0');
+  const [timKerjaNama, setTimKerjaNama] = React.useState<string | undefined>(
+    '0',
+  );
   const [isIsi, setIsIsi] = React.useState<number>(0);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [reminder, setReminder] = React.useState({
+    is_lima_hari: false,
+    is_tiga_hari: false,
+    is_satu_hari: false,
+    is_hari_h: false,
+  });
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setReminder({
+      ...reminder,
+      [event.target.name]: event.target.checked,
+    });
+  };
+
+  const { is_lima_hari, is_tiga_hari, is_satu_hari, is_hari_h } = reminder;
 
   React.useEffect(() => {
     if (data) {
@@ -81,6 +110,14 @@ export default function DefaultInputs({ data, dataUser, dataTim }: Props) {
       setTanggalSelesai(data.tanggal_selesai.toISOString() || '');
       setTimKerja(data.timkerjaId || '0');
       setPeserta(data.peserta.map((a: { user: UserProfile }) => a.user));
+      setTimKerjaNama(data.timKerja?.nama);
+      setReminder((prev) => ({
+        ...prev,
+        is_lima_hari: data.is_lima_hari ?? false,
+        is_tiga_hari: data.is_tiga_hari ?? false,
+        is_satu_hari: data.is_satu_hari ?? false,
+        is_hari_h: data.is_hari_h ?? false, // kayaknya typo, tadi kamu isi data.is_lima_hari
+      }));
     }
   }, [data]);
 
@@ -113,8 +150,10 @@ export default function DefaultInputs({ data, dataUser, dataTim }: Props) {
     if (selectedTim) {
       setTimKerja(selectedTim.id);
       setPeserta(selectedTim.anggota.map((a) => a.user));
+      setTimKerjaNama(selectedTim.nama);
     } else {
       setTimKerja('0');
+      setTimKerjaNama('0');
       const userLogin = dataUser.find((u) => u.name === session?.user?.name);
       if (userLogin) {
         setPeserta([userLogin]); // harus array
@@ -124,8 +163,25 @@ export default function DefaultInputs({ data, dataUser, dataTim }: Props) {
     }
   };
 
+  const diffDays = React.useMemo(() => {
+    if (!tanggalSelesai) return 0;
+
+    const selesai = new Date(tanggalSelesai.replace(' ', 'T')); // konversi ke Date
+    const now = new Date();
+    const diffMs = selesai.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24)); // selisih dalam hari
+  }, [tanggalSelesai]);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const mulai = new Date(tanggalMulai);
+    const selesai = new Date(tanggalSelesai);
+
+    if (selesai < mulai) {
+      setErrorMessage('Waktu selesai tidak boleh lebih awal dari waktu mulai.');
+      return; // hentikan submit
+    }
     try {
       const res = await fetch(`/api/kegiatan/${kegiatanId}`, {
         method: 'PUT',
@@ -137,6 +193,11 @@ export default function DefaultInputs({ data, dataUser, dataTim }: Props) {
           timkerjaId: timKerja,
           anggota: peserta,
           isIsi: isIsi,
+          timKerjaNama: timKerjaNama,
+          is_hari_h,
+          is_lima_hari,
+          is_satu_hari,
+          is_tiga_hari,
         }),
         headers: { 'Content-Type': 'application/json' },
       });
@@ -233,6 +294,67 @@ export default function DefaultInputs({ data, dataUser, dataTim }: Props) {
           </div>
 
           <div>
+            <FormControl component="fieldset" variant="standard">
+              <FormLabel sx={{ color: 'black' }} component="legend">
+                Reminder Whatsapp
+              </FormLabel>
+              <FormGroup>
+                {/* hanya tampil kalau selisih > 5 hari */}
+                {diffDays >= 5 && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={is_lima_hari}
+                        onChange={handleChange}
+                        name="is_lima_hari"
+                      />
+                    }
+                    label="5 hari sebelum waktu selesai"
+                  />
+                )}
+                {/* hanya tampil kalau selisih > 3 hari */}
+                {diffDays >= 3 && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={is_tiga_hari}
+                        onChange={handleChange}
+                        name="is_tiga_hari"
+                      />
+                    }
+                    label="3 hari sebelum waktu selesai"
+                  />
+                )}
+                {/* hanya tampil kalau selisih > 1 hari */}
+                {diffDays >= 1 && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={is_satu_hari}
+                        onChange={handleChange}
+                        name="is_satu_hari"
+                      />
+                    }
+                    label="1 hari sebelum waktu selesai"
+                  />
+                )}
+                {/* Hari H selalu ada */}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={is_hari_h}
+                      onChange={handleChange}
+                      name="is_hari_h"
+                    />
+                  }
+                  label="Hari H saat waktu selesai"
+                />
+              </FormGroup>
+              {/* <FormHelperText>Be careful</FormHelperText> */}
+            </FormControl>
+          </div>
+
+          <div>
             <FormControl variant="standard" fullWidth>
               <InputLabel id="demo-multiple-chip-label">Tim Kerja</InputLabel>
               <Select
@@ -290,6 +412,15 @@ export default function DefaultInputs({ data, dataUser, dataTim }: Props) {
               )}
             />
           </div>
+
+          {errorMessage && (
+            <div>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {errorMessage}
+              </Alert>
+            </div>
+          )}
+
           <div className="flex justify-end">
             <Button variant="contained" type="submit" form="subscription-form">
               Edit

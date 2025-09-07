@@ -21,6 +21,12 @@ import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 
+import FormLabel from '@mui/material/FormLabel';
+import FormGroup from '@mui/material/FormGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+// import FormHelperText from '@mui/material/FormHelperText';
+import Checkbox from '@mui/material/Checkbox';
+
 // import Chip from '@mui/material/Chip';
 // import Box from '@mui/material/Box';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -51,6 +57,10 @@ interface CalendarProfile {
   tanggal_selesai: Date;
   timkerjaId: string | null;
   calender: string | null;
+  is_lima_hari: boolean | null;
+  is_tiga_hari: boolean | null;
+  is_satu_hari: boolean | null;
+  is_hari_h: boolean | null;
   dibuat_oleh: {
     email: string;
   };
@@ -99,6 +109,35 @@ export default function DefaultInputs({ data }: Props) {
   // const [googleId, setGoogleId] = useState<GoogleEventId[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
+  const [reminder, setReminder] = React.useState({
+    is_lima_hari: false,
+    is_tiga_hari: false,
+    is_satu_hari: false,
+    is_hari_h: false,
+  });
+
+  const { is_lima_hari, is_tiga_hari, is_satu_hari, is_hari_h } = reminder;
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setReminder({
+      ...reminder,
+      [event.target.name]: event.target.checked,
+    });
+  };
+
+  const diffDays = React.useMemo(() => {
+    if (!eventEndDate) return 0;
+
+    const selesai = new Date(eventEndDate.replace(' ', 'T')); // konversi ke Date
+    const now = new Date();
+    const diffMs = selesai.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24)); // selisih dalam hari
+  }, [eventEndDate]);
+
+  function toJayapura(date: Date) {
+    const jayapura = new Date(date.getTime() - 9 * 60 * 60 * 1000); // -9 jam
+    return jayapura.toLocaleString('sv-SE');
+  }
 
   useEffect(() => {
     if (data && data.length > 0) {
@@ -113,11 +152,15 @@ export default function DefaultInputs({ data }: Props) {
         return {
           id: kegiatan.id.toString(),
           title: kegiatan.nama,
-          start: kegiatan.tanggal_mulai.toISOString(),
-          end: kegiatan.tanggal_selesai.toISOString(),
+          start: kegiatan.tanggal_mulai,
+          end: kegiatan.tanggal_selesai,
           extendedProps: {
             calendar: kegiatan.calender ? kegiatan.calender : randomColor, // isi acak
             deskripsi: kegiatan.deskripsi,
+            is_tiga_hari: kegiatan.is_tiga_hari ? kegiatan.is_tiga_hari : false,
+            is_lima_hari: kegiatan.is_lima_hari ? kegiatan.is_lima_hari : false,
+            is_satu_hari: kegiatan.is_satu_hari ? kegiatan.is_satu_hari : false,
+            is_hari_h: kegiatan.is_hari_h ? kegiatan.is_hari_h : false,
             timkerjaId: kegiatan.timKerja?.nama
               ? kegiatan.timKerja?.nama
               : 'Pribadi',
@@ -154,10 +197,18 @@ export default function DefaultInputs({ data }: Props) {
     setEventTitle(event.title);
     setEventMaker(event.extendedProps.dibuat_oleh || '');
     setEventDeskripsi(event.extendedProps.deskripsi || '');
-    setEventStartDate(event.start?.toISOString() || '');
-    setEventEndDate(event.end?.toISOString() || '');
+    setEventStartDate(event.start ? toJayapura(event.start as Date) : '');
+    setEventEndDate(event.end ? toJayapura(new Date(event.end)) : '');
     setEventTimName(event.extendedProps.timkerjaId || '');
     setPeserta(event.extendedProps.peserta || []);
+    // set is_lima_hari menjadi true
+    setReminder((prev) => ({
+      ...prev,
+      is_lima_hari: event.extendedProps.is_lima_hari,
+      is_tiga_hari: event.extendedProps.is_tiga_hari,
+      is_satu_hari: event.extendedProps.is_satu_hari,
+      is_hari_h: event.extendedProps.is_lima_hari,
+    }));
     // setGoogleId(event.extendedProps.google_event_id || []);
     openModal();
   };
@@ -364,7 +415,7 @@ export default function DefaultInputs({ data }: Props) {
 
             <div className="mt-3">
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                Tanggal Mulai
+                Waktu Mulai
               </label>
               <div>
                 <DatePicker
@@ -382,7 +433,7 @@ export default function DefaultInputs({ data }: Props) {
 
             <div className="mt-3">
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                Tanggal Berhenti
+                Waktu Selesai
               </label>
               <DatePicker
                 id="date-picker"
@@ -394,6 +445,66 @@ export default function DefaultInputs({ data }: Props) {
                   console.log({ dates, currentDateString });
                 }}
               />
+            </div>
+            <div className="mt-3">
+              <FormControl component="fieldset" variant="standard" disabled>
+                <FormLabel sx={{ color: 'black' }} component="legend">
+                  Reminder Whatsapp
+                </FormLabel>
+                <FormGroup>
+                  {/* hanya tampil kalau selisih > 5 hari */}
+                  {diffDays >= 5 && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={is_lima_hari}
+                          onChange={handleChange}
+                          name="is_lima_hari"
+                        />
+                      }
+                      label="5 hari sebelum waktu selesai"
+                    />
+                  )}
+                  {/* hanya tampil kalau selisih > 3 hari */}
+                  {diffDays >= 3 && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={is_tiga_hari}
+                          onChange={handleChange}
+                          name="is_tiga_hari"
+                        />
+                      }
+                      label="3 hari sebelum waktu selesai"
+                    />
+                  )}
+                  {/* hanya tampil kalau selisih > 1 hari */}
+                  {diffDays >= 1 && (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={is_satu_hari}
+                          onChange={handleChange}
+                          name="is_satu_hari"
+                        />
+                      }
+                      label="1 hari sebelum waktu selesai"
+                    />
+                  )}
+                  {/* Hari H selalu ada */}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={is_hari_h}
+                        onChange={handleChange}
+                        name="is_hari_h"
+                      />
+                    }
+                    label="Hari H saat waktu selesai"
+                  />
+                </FormGroup>
+                {/* <FormHelperText>Be careful</FormHelperText> */}
+              </FormControl>
             </div>
             <div className="mt-3">
               <FormControl variant="standard" fullWidth disabled>

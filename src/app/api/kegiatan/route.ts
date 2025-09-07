@@ -9,6 +9,15 @@ interface UserProfile {
   name: string | null;
 }
 
+interface JobInsert {
+  user_id: string;
+  kegiatan_id: string;
+  message: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   try {
@@ -19,6 +28,11 @@ export async function POST(req: NextRequest) {
       tanggal_mulai,
       tanggal_selesai,
       timkerjaId,
+      timKerjaNama,
+      is_lima_hari,
+      is_tiga_hari,
+      is_satu_hari,
+      is_hari_h,
       peserta,
     } = body;
 
@@ -47,6 +61,10 @@ export async function POST(req: NextRequest) {
         timkerjaId: timkerjaId != '0' ? timkerjaId : null,
         created_by: userData?.id,
         calender: randomColor,
+        is_lima_hari: is_lima_hari,
+        is_tiga_hari: is_tiga_hari,
+        is_satu_hari: is_satu_hari,
+        is_hari_h: is_hari_h,
       },
     ];
 
@@ -199,24 +217,214 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert template message ke tabel Jobs
-    const jobsData = peserta.map((participant: UserProfile) => ({
-      user_id: participant.id,
-      kegiatan_id: kegiatan.id,
-      // phone_number: participant.nomor_hp,
-      message: `Halo ${
-        participant.name || 'Peserta'
-      }, Anda baru saja ditambahkan ke kegiatan "${nama}".\n\n🗓️ Waktu mulai: ${tanggalMulai}\n⏳ Tenggat waktu: ${tanggalSelesai}`,
-      status: 'PENDING',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
+    if (
+      (timkerjaId == '0' &&
+        (is_hari_h || is_lima_hari || is_tiga_hari || is_satu_hari)) ||
+      timkerjaId != '0'
+    ) {
+      const selesai = new Date(tanggalSelesai.replace(' ', 'T'));
+      // const created_at = new Date(selesai); // clone
 
-    const { error: jobsError } = await supabase.from('Jobs').insert(jobsData);
+      const jobsData: JobInsert[] = [];
 
-    if (jobsError) {
-      console.error(jobsError);
-      return NextResponse.json({ error: jobsError.message }, { status: 500 });
+      if (timkerjaId != '0') {
+        const mulaiTanggal = new Date(tanggalMulai.replace(' ', 'T'));
+        const selesaiTanggal = new Date(selesai);
+
+        jobsData.push(
+          ...peserta.map((participant: UserProfile) => ({
+            user_id: participant.id,
+            kegiatan_id: kegiatan.id,
+            message: `[Tidak Perlu Dibalas]\nHalo ${
+              participant.name || 'Peserta'
+            }, anda baru saja ditambahkan ke kegiatan baru.\n\n📊 Nama: ${nama}\n🗓️ Waktu kegiatan: ${mulaiTanggal} s.d. ${selesaiTanggal}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\n\nSemangat!`,
+            status: 'PENDING',
+            created_at: new Date().toISOString().split('T')[0],
+            updated_at: new Date().toISOString(),
+          })),
+        );
+      }
+
+      // ============== Reminder rules ==============
+      const reminders = [
+        { flag: is_lima_hari, offset: -5, text: '*5 hari lagi*' },
+        { flag: is_tiga_hari, offset: -3, text: '*3 hari lagi*' },
+        { flag: is_satu_hari, offset: -1, text: '*1 hari lagi*' },
+        { flag: is_hari_h, offset: 0, text: '*hari ini*' },
+      ];
+
+      reminders.forEach(({ flag, offset, text }) => {
+        if (!flag) return;
+        const reminderDate = new Date(selesai);
+        reminderDate.setDate(selesai.getDate() + offset);
+
+        jobsData.push(
+          ...peserta.map((participant: UserProfile) => ({
+            user_id: participant.id,
+            kegiatan_id: kegiatan.id,
+            message: `[Tidak Perlu Dibalas]\nHalo ${
+              participant.name || 'Peserta'
+            }, kegiatan ${nama} memiliki tenggat waktu ${text}.\nTerimakasih`,
+            status: 'PENDING',
+            created_at: reminderDate.toISOString().split('T')[0],
+            updated_at: new Date().toISOString(),
+          })),
+        );
+      });
+
+      // ============== Insert sekali ==============
+      if (jobsData.length > 0) {
+        const { error: jobsError } = await supabase
+          .from('Jobs')
+          .insert(jobsData);
+
+        if (jobsError) {
+          console.error(jobsError);
+          return NextResponse.json(
+            { error: jobsError.message },
+            { status: 500 },
+          );
+        }
+      }
     }
+
+    // if (
+    //   (timkerjaId == '0' &&
+    //     (is_hari_h || is_lima_hari || is_tiga_hari || is_satu_hari)) ||
+    //   timkerjaId != '0'
+    // ) {
+    //   const selesai = new Date(tanggalSelesai.replace(' ', 'T'));
+    //   const created_at = new Date(selesai); // clone biar tidak merusak selesai
+    //   if (timkerjaId != '0') {
+    //     const selesai = new Date(tanggalSelesai.replace(' ', 'T'));
+    //     const selesaiTanggal = new Date(selesai); // clone biar tidak merusak selesai
+    //     selesaiTanggal.setDate(selesai.getDate()); // mundurkan 5 hari
+    //     const mulai = new Date(tanggalMulai.replace(' ', 'T'));
+    //     const mulaiTanggal = new Date(mulai); // clone biar tidak merusak selesai
+    //     mulaiTanggal.setDate(selesai.getDate()); // mundurkan 5 hari
+    //     const jobsData = peserta.map((participant: UserProfile) => ({
+    //       user_id: participant.id,
+    //       kegiatan_id: kegiatan.id,
+    //       // phone_number: participant.nomor_hp,
+    //       message: `*[Tidak Perlu Dibalas]*\nHalo ${
+    //         participant.name || 'Peserta'
+    //       }, anda baru saja ditambahkan ke kegiatan baru.\n\n📊 Nama: ${nama}\n🗓️ Waktu kegiatan: ${mulaiTanggal} s.d. ${selesaiTanggal}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\n\nSemangat!`,
+    //       status: 'PENDING',
+    //       created_at: new Date().toISOString().split('T')[0],
+    //       updated_at: new Date().toISOString(),
+    //     }));
+    //     const { error: jobsError } = await supabase
+    //       .from('Jobs')
+    //       .insert(jobsData);
+
+    //     if (jobsError) {
+    //       console.error(jobsError);
+    //       return NextResponse.json(
+    //         { error: jobsError.message },
+    //         { status: 500 },
+    //       );
+    //     }
+    //   }
+    //   if (is_lima_hari) {
+    //     const created_5 = created_at.setDate(selesai.getDate() - 5);
+    //     const jobsData = peserta.map((participant: UserProfile) => ({
+    //       user_id: participant.id,
+    //       kegiatan_id: kegiatan.id,
+    //       // phone_number: participant.nomor_hp,
+    //       message: `Halo ${
+    //         participant.name || 'Peserta'
+    //       }, kegiatan *${nama}* memiliki tenggat waktu *5 hari lagi*.\nTerimakasih`,
+    //       status: 'PENDING',
+    //       created_at: created_5,
+    //       updated_at: new Date().toISOString(),
+    //     }));
+    //     const { error: jobsError } = await supabase
+    //       .from('Jobs')
+    //       .insert(jobsData);
+
+    //     if (jobsError) {
+    //       console.error(jobsError);
+    //       return NextResponse.json(
+    //         { error: jobsError.message },
+    //         { status: 500 },
+    //       );
+    //     }
+    //   }
+    //   if (is_tiga_hari) {
+    //     const created_3 = created_at.setDate(selesai.getDate() - 3);
+    //     const jobsData = peserta.map((participant: UserProfile) => ({
+    //       user_id: participant.id,
+    //       kegiatan_id: kegiatan.id,
+    //       // phone_number: participant.nomor_hp,
+    //       message: `Halo ${
+    //         participant.name || 'Peserta'
+    //       }, kegiatan *${nama}* memiliki tenggat waktu *3 hari lagi*.\nTerimakasih`,
+    //       status: 'PENDING',
+    //       created_at: created_3,
+    //       updated_at: new Date().toISOString(),
+    //     }));
+    //     const { error: jobsError } = await supabase
+    //       .from('Jobs')
+    //       .insert(jobsData);
+
+    //     if (jobsError) {
+    //       console.error(jobsError);
+    //       return NextResponse.json(
+    //         { error: jobsError.message },
+    //         { status: 500 },
+    //       );
+    //     }
+    //   }
+    //   if (is_satu_hari) {
+    //     const created_1 = created_at.setDate(selesai.getDate() - 1);
+    //     const jobsData = peserta.map((participant: UserProfile) => ({
+    //       user_id: participant.id,
+    //       kegiatan_id: kegiatan.id,
+    //       // phone_number: participant.nomor_hp,
+    //       message: `Halo ${
+    //         participant.name || 'Peserta'
+    //       }, kegiatan *${nama}* memiliki tenggat waktu *1 hari lagi*.\nTerimakasih`,
+    //       status: 'PENDING',
+    //       created_at: created_1,
+    //       updated_at: new Date().toISOString(),
+    //     }));
+    //     const { error: jobsError } = await supabase
+    //       .from('Jobs')
+    //       .insert(jobsData);
+
+    //     if (jobsError) {
+    //       console.error(jobsError);
+    //       return NextResponse.json(
+    //         { error: jobsError.message },
+    //         { status: 500 },
+    //       );
+    //     }
+    //   }
+    //   if (is_hari_h) {
+    //     const jobsData = peserta.map((participant: UserProfile) => ({
+    //       user_id: participant.id,
+    //       kegiatan_id: kegiatan.id,
+    //       // phone_number: participant.nomor_hp,
+    //       message: `Halo ${
+    //         participant.name || 'Peserta'
+    //       }, kegiatan *${nama}* memiliki tenggat waktu *hari ini*.\nTerimakasih`,
+    //       status: 'PENDING',
+    //       created_at: created_at,
+    //       updated_at: new Date().toISOString(),
+    //     }));
+    //     const { error: jobsError } = await supabase
+    //       .from('Jobs')
+    //       .insert(jobsData);
+
+    //     if (jobsError) {
+    //       console.error(jobsError);
+    //       return NextResponse.json(
+    //         { error: jobsError.message },
+    //         { status: 500 },
+    //       );
+    //     }
+    //   }
+    // }
 
     return NextResponse.json(
       { message: 'Kegiatan berhasil dibuat', kegiatan },

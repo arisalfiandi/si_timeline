@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer as supabase } from '@/lib/supabase/server';
 import { format } from 'date-fns';
+import { prisma } from '@/lib/prisma';
+
+interface JobInsert {
+  user_id: string;
+  kegiatan_id: string;
+  message: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
 // ==== Fungsi refresh token Google ====
 async function refreshAccessToken(refreshToken: string) {
@@ -69,7 +79,7 @@ async function insertEventGoogleCalendar(
 // ---- Update ke Google Calendar tiap peserta ----
 async function updateEventGoogleCalendar(
   accessToken: string,
-  eventId: string,
+  eventId: string | null,
   updates: {
     summary?: string;
     description?: string;
@@ -114,7 +124,10 @@ async function updateEventGoogleCalendar(
 }
 
 // ==== Fungsi delete event Google ====
-async function deleteEventGoogleCalendar(accessToken: string, eventId: string) {
+async function deleteEventGoogleCalendar(
+  accessToken: string,
+  eventId: string | null,
+) {
   const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
     {
@@ -152,7 +165,12 @@ export async function PUT(
     tanggal_mulai,
     tanggal_selesai,
     timkerjaId,
+    timKerjaNama,
     anggota,
+    is_satu_hari,
+    is_tiga_hari,
+    is_lima_hari,
+    is_hari_h,
     isIsi,
   } = body as {
     nama: string;
@@ -160,6 +178,11 @@ export async function PUT(
     tanggal_mulai: string;
     tanggal_selesai: string;
     timkerjaId: string;
+    timKerjaNama: string;
+    is_hari_h: boolean;
+    is_tiga_hari: boolean;
+    is_satu_hari: boolean;
+    is_lima_hari: boolean;
     isIsi: number;
     anggota: { id: string; name: string }[];
   };
@@ -168,26 +191,38 @@ export async function PUT(
   const tanggalSelesai = format(new Date(tanggal_selesai), 'yyyy-MM-dd HH:mm');
 
   const newMemberIds = Array.from(
-    new Set(
-      (anggota ?? []).map((a) => ({
-        id: a.id,
-        name: a.name,
-      })),
-    ),
+    new Map(
+      (anggota ?? []).map((a) => [a.id, { id: a.id, name: a.name }]),
+    ).values(),
   );
 
   try {
     // Ambil anggota lama
-    const { data: existing, error: existingErr } = await supabase
-      .from('KegiatanUser')
-      .select('userId, google_event_id')
-      .eq('kegiatanId', kegiatanId);
+    // const { data: existing, error: existingErr } = await supabase
+    //   .from('KegiatanUser')
+    //   .select('userId, name, google_event_id')
+    //   .eq('kegiatanId', kegiatanId);
+    // if (existingErr) throw existingErr;
 
-    if (existingErr) throw existingErr;
+    const existing = await prisma.kegiatanUser.findMany({
+      select: {
+        userId: true,
+        google_event_id: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      where: {
+        kegiatanId: kegiatanId,
+      },
+    });
 
     const oldMemberIds =
       existing?.map((e) => ({
         id: e.userId,
+        name: e.user?.name ?? null,
         google_event_id: e.google_event_id,
       })) ?? [];
 
@@ -197,6 +232,12 @@ export async function PUT(
     const toAdd = newMemberIds.filter((x) => !oldIds.includes(x.id));
     const toRemove = oldMemberIds.filter((x) => !newIds.includes(x.id));
     const toUpdate = oldMemberIds.filter((x) => newIds.includes(x.id));
+
+    // console.log('anggota:', anggota);
+
+    // console.log('to Add:', toAdd);
+    // console.log('to Remove:', toRemove);
+    // console.log('to Update:', toUpdate);
 
     // Update Kegiatan or Isi Kegiatan Berubah
     if (isIsi === 1) {
@@ -248,14 +289,81 @@ export async function PUT(
         }
       }
 
+      // Delete message di tabel jobs
+      const { error: delErr } = await supabase
+        .from('Jobs')
+        .delete()
+        .eq('kegiatan_id', kegiatanId);
+
+      if (delErr) throw delErr;
+
       // Insert template message ke tabel Jobs
+      if (
+        (timkerjaId == '0' &&
+          (is_hari_h || is_lima_hari || is_tiga_hari || is_satu_hari)) ||
+        timkerjaId != '0'
+      ) {
+        const selesai = new Date(tanggalSelesai.replace(' ', 'T'));
+        // const created_at = new Date(selesai); // clone
+
+        const jobsData: JobInsert[] = [];
+
+        // ============== Reminder rules ==============
+        const reminders = [
+          { flag: is_lima_hari, offset: -5, text: '*5 hari lagi*' },
+          { flag: is_tiga_hari, offset: -3, text: '*3 hari lagi*' },
+          { flag: is_satu_hari, offset: -1, text: '*1 hari lagi*' },
+          { flag: is_hari_h, offset: 0, text: '*hari ini*' },
+        ];
+
+        reminders.forEach(({ flag, offset, text }) => {
+          if (!flag) return;
+          const reminderDate = new Date(selesai);
+          reminderDate.setDate(selesai.getDate() + offset);
+
+          jobsData.push(
+            ...toUpdate.map((participant) => ({
+              user_id: participant.id,
+              kegiatan_id: kegiatanId,
+              message: `[Tidak Perlu Dibalas]\nHalo ${
+                participant.name || 'Peserta'
+              }, kegiatan ${nama} memiliki tenggat waktu ${text}.\nTerimakasih`,
+              status: 'PENDING',
+              created_at: reminderDate.toISOString().split('T')[0],
+              updated_at: new Date().toISOString(),
+            })),
+          );
+        });
+
+        // ============== Insert sekali saja ==============
+        if (jobsData.length > 0) {
+          const { error: jobsError } = await supabase
+            .from('Jobs')
+            .insert(jobsData);
+
+          if (jobsError) {
+            console.error(jobsError);
+            return NextResponse.json(
+              { error: jobsError.message },
+              { status: 500 },
+            );
+          }
+        }
+      }
+
+      const selesai = new Date(tanggalSelesai.replace(' ', 'T'));
+      const selesaiTanggal = new Date(selesai); // clone biar tidak merusak selesai
+      selesaiTanggal.setDate(selesai.getDate()); // mundurkan 5 hari
+      const mulai = new Date(tanggalMulai.replace(' ', 'T'));
+      const mulaiTanggal = new Date(mulai); // clone biar tidak merusak selesai
+      mulaiTanggal.setDate(selesai.getDate()); // mundurkan 5 hari
       const jobsData = toUpdate.map((participant) => ({
         user_id: participant.id,
         kegiatan_id: kegiatanId,
         // phone_number: participant.nomor_hp,
-        message: `Ada perubahan informasi kegiatan "${nama}".\n\n🗓️ Waktu mulai: ${tanggalMulai}\n⏳ Tenggat waktu: ${tanggalSelesai}`,
+        message: `[Tidak Perlu Dibalas]\nAda perubahan informasi kegiatan ${nama}.\n\n🗓️ Waktu kegiatan: ${mulaiTanggal} s.d. ${selesaiTanggal}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\nTerimakasih`,
         status: 'PENDING',
-        created_at: new Date().toISOString(),
+        created_at: new Date().toISOString().split('T')[0],
         updated_at: new Date().toISOString(),
       }));
 
@@ -279,23 +387,6 @@ export async function PUT(
           'userId',
           toRemove.map((x) => x.id),
         );
-
-      // // Insert template message ke tabel Jobs
-      // const jobsData = toRemove.map((participant) => ({
-      //   user_id: participant.id,
-      //   kegiatan_id: kegiatanId,
-      //   // phone_number: participant.nomor_hp,
-      //   message: `Anda bukan lagi peserta dari kegiatan "${nama}"`,
-      //   status: 'PENDING',
-      //   created_at: new Date().toISOString(),
-      // }));
-
-      // const { error: jobsError } = await supabase.from('Jobs').insert(jobsData);
-
-      // if (jobsError) {
-      //   console.error(jobsError);
-      //   return NextResponse.json({ error: jobsError.message }, { status: 500 });
-      // }
 
       // Hapus event google
       for (const participant of toRemove) {
@@ -380,23 +471,76 @@ export async function PUT(
       }
 
       // Insert template message ke tabel Jobs
-      const jobsData = toAdd.map((participant) => ({
-        user_id: participant.id,
-        kegiatan_id: kegiatanId,
-        // phone_number: participant.nomor_hp,
-        message: `Halo ${
-          participant.name || 'Peserta'
-        }, Anda baru saja ditambahkan ke kegiatan "${nama}".\n\n🗓️ Waktu mulai: ${tanggalMulai}\n⏳ Tenggat waktu: ${tanggalSelesai}`,
-        status: 'PENDING',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }));
+      if (
+        (timkerjaId == '0' &&
+          (is_hari_h || is_lima_hari || is_tiga_hari || is_satu_hari)) ||
+        timkerjaId != '0'
+      ) {
+        const selesai = new Date(tanggalSelesai.replace(' ', 'T'));
+        // const created_at = new Date(selesai); // clone
 
-      const { error: jobsError } = await supabase.from('Jobs').insert(jobsData);
+        const jobsData: JobInsert[] = [];
 
-      if (jobsError) {
-        console.error(jobsError);
-        return NextResponse.json({ error: jobsError.message }, { status: 500 });
+        // ============== Pesan Timkerja langsung ==============
+        if (timkerjaId != '0') {
+          const mulaiTanggal = new Date(tanggalMulai.replace(' ', 'T'));
+          const selesaiTanggal = new Date(selesai);
+
+          jobsData.push(
+            ...toAdd.map((participant) => ({
+              user_id: participant.id,
+              kegiatan_id: kegiatanId,
+              message: `[Tidak Perlu Dibalas]\nHalo ${
+                participant.name || 'Peserta'
+              }, anda baru saja ditambahkan ke kegiatan baru.\n\n📊 Nama: ${nama}\n🗓️ Waktu kegiatan: ${mulaiTanggal} s.d. ${selesaiTanggal}\n⏳ Tenggat waktu: ${tanggalSelesai}\n👤 Tim: ${timKerjaNama}\n\nSemangat!`,
+              status: 'PENDING',
+              created_at: new Date().toISOString().split('T')[0],
+              updated_at: new Date().toISOString(),
+            })),
+          );
+        }
+
+        // ============== Reminder rules ==============
+        const reminders = [
+          { flag: is_lima_hari, offset: -5, text: '*5 hari lagi*' },
+          { flag: is_tiga_hari, offset: -3, text: '*3 hari lagi*' },
+          { flag: is_satu_hari, offset: -1, text: '*1 hari lagi*' },
+          { flag: is_hari_h, offset: 0, text: '*hari ini*' },
+        ];
+
+        reminders.forEach(({ flag, offset, text }) => {
+          if (!flag) return;
+          const reminderDate = new Date(selesai);
+          reminderDate.setDate(selesai.getDate() + offset);
+
+          jobsData.push(
+            ...toAdd.map((participant) => ({
+              user_id: participant.id,
+              kegiatan_id: kegiatanId,
+              message: `[Tidak Perlu Dibalas]\nHalo ${
+                participant.name || 'Peserta'
+              }, kegiatan ${nama} memiliki tenggat waktu ${text}.\nTerimakasih`,
+              status: 'PENDING',
+              created_at: reminderDate.toISOString().split('T')[0],
+              updated_at: new Date().toISOString(),
+            })),
+          );
+        });
+
+        // ============== Insert sekali saja ==============
+        if (jobsData.length > 0) {
+          const { error: jobsError } = await supabase
+            .from('Jobs')
+            .insert(jobsData);
+
+          if (jobsError) {
+            console.error(jobsError);
+            return NextResponse.json(
+              { error: jobsError.message },
+              { status: 500 },
+            );
+          }
+        }
       }
 
       // if (addErr) throw addErr;
@@ -404,7 +548,7 @@ export async function PUT(
 
     return NextResponse.json({ ok: true });
   } catch (e) {
-    console.error('Gagal update kegiatan user:', e);
+    console.error('Gagal update kegiatan:', e);
     return NextResponse.json({ error: 'Gagal update tim' }, { status: 500 });
   }
 }

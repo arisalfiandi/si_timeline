@@ -94,11 +94,16 @@ const AppSidebar: React.FC = () => {
       icon: <TaskIcon />,
       path: '/form-kegiatan',
     },
-    {
-      name: 'Tim Kerja',
-      icon: <GroupIcon />,
-      path: '/tim-kerja',
-    },
+    // hanya admin bisa lihat
+    ...(session?.user?.role === 'ketuaTim' || session?.user?.role === 'admin'
+      ? [
+          {
+            name: 'Tim Kerja',
+            icon: <GroupIcon />,
+            path: '/tim-kerja',
+          } as NavItem,
+        ]
+      : []),
     // hanya admin bisa lihat
     ...(session?.user?.role === 'admin'
       ? [

@@ -46,6 +46,10 @@ export default async function FormEditElements({ params }: Props) {
       tanggal_selesai: true,
       timkerjaId: true,
       calender: true,
+      is_lima_hari: true,
+      is_satu_hari: true,
+      is_tiga_hari: true,
+      is_hari_h: true,
       dibuat_oleh: {
         select: {
           email: true,

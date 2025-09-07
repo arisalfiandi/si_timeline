@@ -20,7 +20,7 @@ import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
-  title: 'Edit Kegiatan - Sipete',
+  title: 'Buat Kegiatan - Sipete',
   description:
     'This is Next.js Form Elements page for TailAdmin - Next.js Tailwind CSS Admin Dashboard Template',
 };

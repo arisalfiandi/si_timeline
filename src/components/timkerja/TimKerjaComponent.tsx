@@ -303,7 +303,8 @@ export default function TimKerjaComponent({ data, dataTim }: Props) {
       // ),
       flex: 2,
       renderCell: (params) =>
-        session?.user.id === params.row.ketuaTimId ? (
+        session?.user.id === params.row.ketuaTimId ||
+        session?.user.role === 'admin' ? (
           <Box>
             <Button
               sx={{ mr: 2, fontSize: 5 }}
